@@ -2,17 +2,17 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentBotId = null;
   let logInterval = null;
 
-  // Grab all DOM elements first (prevents Temporal Dead Zone ReferenceErrors)
   const codeTextArea = document.getElementById("codeEditor");
   const reqBox = document.getElementById("reqBox");
   const deployMode = document.getElementById("deployMode");
   const botTokenInput = document.getElementById("botToken");
   const tokenStatusEl = document.getElementById("tokenStatus");
+  const editorStatsEl = document.getElementById("editorStats");
+  const inlineLogsOut = document.getElementById("inlineLogsOut");
   const termEl = document.getElementById("floatingTerminal");
-  const consoleOut = document.getElementById("consoleOut");
+  const floatingConsoleOut = document.getElementById("consoleOut");
   const dragHandle = document.getElementById("termDragHandle");
 
-  // Initialize CodeMirror with safe fallback to plain textarea
   let cmEditor = null;
   if (typeof window.CodeMirror !== "undefined" && codeTextArea) {
     cmEditor = CodeMirror.fromTextArea(codeTextArea, {
@@ -23,6 +23,9 @@ document.addEventListener("DOMContentLoaded", () => {
       tabSize: 4,
       lineWrapping: true
     });
+    cmEditor.on("change", updateEditorStats);
+  } else if (codeTextArea) {
+    codeTextArea.addEventListener("input", updateEditorStats);
   }
 
   function getEditorCode() {
@@ -35,17 +38,33 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (codeTextArea) {
       codeTextArea.value = val;
     }
+    updateEditorStats();
   }
 
-  function logConsole(msg, isError = false) {
-    if (!consoleOut) return;
-    if (termEl) termEl.classList.remove("minimized");
-    consoleOut.style.color = isError ? "#f87171" : "#34d399";
-    consoleOut.textContent = msg;
-    consoleOut.scrollTop = consoleOut.scrollHeight;
+  function updateEditorStats() {
+    if (!editorStatsEl) return;
+    const code = getEditorCode();
+    const lines = code ? code.split("\n").length : 0;
+    editorStatsEl.textContent = `Lines: ${lines} | Chars: ${code.length}`;
   }
 
-  // DEMO 1: Polling Bot (pyTelegramBotAPI)
+  function writeLogs(msg, isError = false, openFloating = false) {
+    const color = isError ? "#f87171" : "#34d399";
+    if (inlineLogsOut) {
+      inlineLogsOut.style.color = color;
+      inlineLogsOut.textContent = msg;
+      inlineLogsOut.scrollTop = inlineLogsOut.scrollHeight;
+    }
+    if (floatingConsoleOut) {
+      floatingConsoleOut.style.color = color;
+      floatingConsoleOut.textContent = msg;
+      floatingConsoleOut.scrollTop = floatingConsoleOut.scrollHeight;
+    }
+    if (openFloating && termEl) {
+      termEl.classList.remove("minimized");
+    }
+  }
+
   const DEMO_POLLING_BOT = `import os
 import time
 import platform
@@ -92,7 +111,6 @@ print("[POLLING] Bot connected and listening for updates...")
 bot.infinity_polling(skip_pending=True)
 `;
 
-  // DEMO 2: Webhook Bot (aiohttp + pyTelegramBotAPI async)
   const DEMO_WEBHOOK_BOT = `import os
 import telebot
 from telebot.async_telebot import AsyncTeleBot
@@ -141,22 +159,34 @@ if __name__ == "__main__":
       setEditorCode(DEMO_WEBHOOK_BOT);
       if (reqBox) reqBox.value = "pyTelegramBotAPI\naiohttp";
       if (deployMode) deployMode.value = "webhook";
-      logConsole("Loaded Demo: Webhook Bot (pyTelegramBotAPI + aiohttp). Mode switched to Auto Webhook.");
+      writeLogs("Loaded Demo: Webhook Bot (pyTelegramBotAPI + aiohttp). Mode: Auto Webhook.");
     } else {
       setEditorCode(DEMO_POLLING_BOT);
       if (reqBox) reqBox.value = "pyTelegramBotAPI";
       if (deployMode) deployMode.value = "polling";
-      logConsole("Loaded Demo: Polling Bot (pyTelegramBotAPI). Mode switched to Auto Polling.");
+      writeLogs("Loaded Demo: Polling Bot (pyTelegramBotAPI). Mode: Auto Polling.");
     }
   }
 
-  // Load default demo safely now that all DOM refs exist
   loadDemo("polling");
 
   document.getElementById("demoPollingBtn")?.addEventListener("click", () => loadDemo("polling"));
   document.getElementById("demoWebhookBtn")?.addEventListener("click", () => loadDemo("webhook"));
 
-  // Safe API Fetch Helper (Never crashes on plain-text 500 errors)
+  document.getElementById("copyCodeBtn")?.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(getEditorCode());
+      writeLogs("Copied bot.py code to clipboard.");
+    } catch {
+      writeLogs("Copy failed — select code manually.", true);
+    }
+  });
+
+  document.getElementById("clearCodeBtn")?.addEventListener("click", () => {
+    setEditorCode("");
+    writeLogs("Cleared CodeBox editor.");
+  });
+
   async function safeFetchJson(url, options = {}) {
     try {
       const res = await fetch(url, options);
@@ -173,7 +203,6 @@ if __name__ == "__main__":
     }
   }
 
-  // Theme Toggle
   document.getElementById("themeToggle")?.addEventListener("click", () => {
     const html = document.documentElement;
     const isDark = html.getAttribute("data-theme") === "dark";
@@ -181,13 +210,11 @@ if __name__ == "__main__":
     if (cmEditor) cmEditor.setOption("theme", isDark ? "eclipse" : "dracula");
   });
 
-  // Token Show/Hide
   document.getElementById("toggleTokenVis")?.addEventListener("click", () => {
     if (!botTokenInput) return;
     botTokenInput.type = botTokenInput.type === "password" ? "text" : "password";
   });
 
-  // Token Verify
   document.getElementById("verifyTokenBtn")?.addEventListener("click", async () => {
     const token = botTokenInput ? botTokenInput.value.trim() : "";
     if (!token) {
@@ -199,7 +226,7 @@ if __name__ == "__main__":
     }
     if (tokenStatusEl) {
       tokenStatusEl.style.color = "#94a3b8";
-      tokenStatusEl.textContent = "Checking with Telegram...";
+      tokenStatusEl.textContent = "Verifying with Telegram...";
     }
 
     const { ok, data } = await safeFetchJson("/api/verify-token", {
@@ -213,24 +240,23 @@ if __name__ == "__main__":
         tokenStatusEl.style.color = "#10b981";
         tokenStatusEl.textContent = `Verified: ${data.name} (${data.username})`;
       }
-      logConsole(`Token verified -> ${data.name} (${data.username}) [ID: ${data.id}]`);
+      writeLogs(`Token verified -> ${data.name} (${data.username}) [ID: ${data.id}]`);
     } else {
       if (tokenStatusEl) {
         tokenStatusEl.style.color = "#f87171";
         tokenStatusEl.textContent = data.detail || "Invalid token";
       }
-      logConsole(`Token verification failed: ${data.detail}`, true);
+      writeLogs(`Token verification failed: ${data.detail}`, true);
     }
   });
 
-  // File Uploads -> Sync into Editor & Requirements
   document.getElementById("pyFileInput")?.addEventListener("change", (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
       setEditorCode(ev.target.result);
-      logConsole(`Loaded ${file.name} (${file.size} bytes) into editor.`);
+      writeLogs(`Uploaded ${file.name} (${file.size} bytes) into CodeBox.`);
     };
     reader.readAsText(file);
   });
@@ -241,26 +267,23 @@ if __name__ == "__main__":
     const reader = new FileReader();
     reader.onload = (ev) => {
       if (reqBox) reqBox.value = ev.target.result;
-      logConsole(`Loaded ${file.name} into requirements.`);
+      writeLogs(`Uploaded ${file.name} into requirements.`);
     };
     reader.readAsText(file);
   });
 
   // Floating Terminal Controls
-  document.getElementById("termMinBtn")?.addEventListener("click", () => {
-    termEl?.classList.toggle("minimized");
-  });
-  document.getElementById("toggleTermBtn")?.addEventListener("click", () => {
-    termEl?.classList.toggle("minimized");
-  });
-  document.getElementById("termExpandBtn")?.addEventListener("click", () => {
-    termEl?.classList.toggle("expanded");
-  });
+  document.getElementById("termMinBtn")?.addEventListener("click", () => termEl?.classList.toggle("minimized"));
+  document.getElementById("toggleTermBtn")?.addEventListener("click", () => termEl?.classList.toggle("minimized"));
+  document.getElementById("termExpandBtn")?.addEventListener("click", () => termEl?.classList.toggle("expanded"));
   document.getElementById("termClearBtn")?.addEventListener("click", () => {
-    if (consoleOut) consoleOut.textContent = "";
+    if (floatingConsoleOut) floatingConsoleOut.textContent = "";
+  });
+  document.getElementById("refreshLogsBtn")?.addEventListener("click", () => {
+    if (currentBotId) fetchLogs(currentBotId);
   });
 
-  // Draggable Floating Terminal (Supports both Mouse & Mobile Touch)
+  // Draggable Floating Terminal (Mouse + Touch)
   if (dragHandle && termEl) {
     let isDragging = false, offsetX = 0, offsetY = 0;
 
@@ -309,17 +332,17 @@ if __name__ == "__main__":
     const mode = deployMode ? deployMode.value : "polling";
 
     if (!botToken) {
-      logConsole("Error: Please enter your Telegram Bot Token.", true);
+      writeLogs("Error: Please enter your Telegram Bot Token.", true);
       return;
     }
 
     btn.disabled = true;
     btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Deploying...`;
-    logConsole(
+    writeLogs(
       `[1/4] Verifying Bot Token...\n` +
       `[2/4] Compiling & checking Python syntax...\n` +
       `[3/4] Installing requirements...\n` +
-      `[4/4] Configuring ${mode.toUpperCase()} & launching process...`
+      `[4/4] Configuring ${mode.toUpperCase()} & starting bot...`
     );
 
     const { ok, data } = await safeFetchJson("/api/deploy", {
@@ -329,21 +352,21 @@ if __name__ == "__main__":
     });
 
     btn.disabled = false;
-    btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> Validate & Deploy Bot`;
+    btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> Validate, Install & Deploy Bot`;
 
     if (!ok) {
-      logConsole(`DEPLOYMENT FAILED:\n${data.detail || "Unknown server error"}`, true);
+      writeLogs(`DEPLOYMENT FAILED:\n${data.detail || "Unknown error"}`, true);
       return;
     }
 
     currentBotId = data.bot_id;
-    logConsole(
+    writeLogs(
       `DEPLOYED SUCCESSFULLY!\n` +
       `Bot: ${data.bot_username} (ID: ${data.bot_id})\n` +
       `Status: ${data.mode_status}\n` +
       `${data.pip_log}\n` +
       `----------------------------------------\n` +
-      `Streaming live bot logs...`
+      `Streaming live logs...`
     );
     fetchSystemStats();
     startLogPolling(data.bot_id);
@@ -352,10 +375,8 @@ if __name__ == "__main__":
   async function fetchLogs(botId) {
     if (!botId) return;
     const { ok, data } = await safeFetchJson(`/api/logs/${botId}`);
-    if (ok && data.logs && consoleOut) {
-      consoleOut.style.color = "#34d399";
-      consoleOut.textContent = data.logs;
-      consoleOut.scrollTop = consoleOut.scrollHeight;
+    if (ok && typeof data.logs === "string") {
+      writeLogs(data.logs, false, false);
     }
   }
 
@@ -364,17 +385,35 @@ if __name__ == "__main__":
     logInterval = setInterval(() => fetchLogs(botId), 3500);
   }
 
-  // Expose functions globally for inline onclick handlers in Active Bots list
   window.viewBotLogs = (botId) => {
     currentBotId = botId;
-    termEl?.classList.remove("minimized");
     fetchLogs(botId);
+    writeLogs(`Attached to logs for Bot ID: ${botId}...`, false, true);
   };
 
-  window.stopBot = async (botId) => {
-    await safeFetchJson(`/api/stop/${botId}`, { method: "POST" });
-    if (currentBotId === botId && logInterval) clearInterval(logInterval);
-    logConsole(`Bot ${botId} stopped.`);
+  window.restartBot = async (botId) => {
+    writeLogs(`Restarting Bot ID: ${botId}...`);
+    const { ok, data } = await safeFetchJson(`/api/restart/${botId}`, { method: "POST" });
+    if (ok) {
+      writeLogs(data.message);
+      fetchSystemStats();
+      fetchLogs(botId);
+    } else {
+      writeLogs(`Restart failed: ${data.detail}`, true);
+    }
+  };
+
+  window.deleteBotAndStorage = async (botId) => {
+    const { ok, data } = await safeFetchJson(`/api/delete/${botId}`, { method: "DELETE" });
+    if (currentBotId === botId && logInterval) {
+      clearInterval(logInterval);
+      currentBotId = null;
+    }
+    if (ok) {
+      writeLogs(`Bot ${botId} stopped & all storage deleted from disk.`);
+    } else {
+      writeLogs(`Delete error: ${data.detail}`, true);
+    }
     fetchSystemStats();
   };
 
@@ -383,27 +422,39 @@ if __name__ == "__main__":
     if (!ok) return;
 
     const ramEl = document.getElementById("ramStat");
+    const diskEl = document.getElementById("diskStat");
     const countEl = document.getElementById("botCountStat");
     if (ramEl) ramEl.textContent = `RAM: ${data.ram_used_mb} / ${data.ram_total_mb} MB`;
+    if (diskEl) diskEl.textContent = `Storage: ${data.disk_used_mb ?? 0} MB`;
     if (countEl) countEl.textContent = `Bots: ${data.active_bots} / ${data.max_bots}`;
 
     const list = document.getElementById("activeBotsList");
     if (!list) return;
 
     if (!data.bots || !data.bots.length) {
-      list.innerHTML = `<span style="color:var(--muted); font-size:0.84rem;">No bots active right now.</span>`;
+      list.innerHTML = `<span style="color:var(--muted); font-size:0.86rem;">No bots currently deployed.</span>`;
       return;
     }
 
     list.innerHTML = data.bots.map(b => `
-      <div class="bot-item">
-        <div>
-          <strong>@${b.username}</strong> <span style="color:var(--success); font-weight:600;">● ${b.status}</span>
-          <div style="color:var(--muted); font-size:0.75rem;">Mode: ${b.mode.toUpperCase()} • Uptime: ${b.uptime_sec}s</div>
+      <div class="bot-card">
+        <div class="bot-top">
+          <strong>@${b.username}</strong>
+          <span style="color:var(--success); font-weight:700; font-size:0.8rem;">● ${b.status}</span>
         </div>
-        <div style="display:flex; gap:6px;">
-          <button class="btn btn-outline btn-sm" onclick="window.viewBotLogs('${b.bot_id}')">Logs</button>
-          <button class="btn btn-danger btn-sm" onclick="window.stopBot('${b.bot_id}')">Stop</button>
+        <div style="color:var(--muted); font-size:0.78rem;">
+          ID: ${b.bot_id} • Mode: ${b.mode.toUpperCase()} • Uptime: ${b.uptime_sec}s
+        </div>
+        <div class="bot-actions">
+          <button class="btn btn-outline btn-sm" onclick="window.viewBotLogs('${b.bot_id}')">
+            <i class="fa-solid fa-terminal"></i> Logs
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="window.restartBot('${b.bot_id}')">
+            <i class="fa-solid fa-rotate-right"></i> Restart
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="window.deleteBotAndStorage('${b.bot_id}')">
+            <i class="fa-solid fa-trash"></i> Delete & Wipe
+          </button>
         </div>
       </div>
     `).join("");
