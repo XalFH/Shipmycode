@@ -4,9 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PyBot Cloud — Render Python Bot Deployer</title>
-  <!-- Font Awesome SVG Icons -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/js/all.min.js"></script>
-  <!-- CodeMirror 5 for Python Syntax Highlighting -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/eclipse.min.css" />
@@ -15,21 +13,22 @@
 
   <style>
     :root {
-      --bg: #0b0f19;
+      --bg: #090d16;
       --surface: #111827;
-      --surface-2: #1f2937;
-      --border: #2e3748;
+      --surface-2: #1a2234;
+      --border: #2a3548;
       --text: #f3f4f6;
-      --muted: #9ca3af;
+      --muted: #94a3b8;
       --accent: #6366f1;
       --accent-hover: #4f46e5;
       --success: #10b981;
+      --warning: #f59e0b;
       --danger: #ef4444;
     }
     [data-theme="light"] {
-      --bg: #f8fafc;
+      --bg: #f1f5f9;
       --surface: #ffffff;
-      --surface-2: #f1f5f9;
+      --surface-2: #f8fafc;
       --border: #cbd5e1;
       --text: #0f172a;
       --muted: #64748b;
@@ -37,89 +36,95 @@
       --accent-hover: #4338ca;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; }
-    body { background: var(--bg); color: var(--text); min-height: 100vh; transition: 0.2s; }
+    body { background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 90px; transition: 0.2s; }
 
     header {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-      padding: 14px 24px;
+      padding: 12px 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: 12px;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 40;
     }
-    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.15rem; }
-    .brand svg { color: var(--accent); font-size: 1.4rem; }
-    .stats-bar { display: flex; align-items: center; gap: 14px; font-size: 0.85rem; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.1rem; }
+    .brand-badge {
+      background: rgba(99, 102, 241, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+    .stats-bar { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; flex-wrap: wrap; }
     .pill {
       background: var(--surface-2);
       border: 1px solid var(--border);
-      padding: 6px 12px;
+      padding: 6px 11px;
       border-radius: 999px;
       display: flex;
       align-items: center;
       gap: 6px;
     }
+
     .btn {
       background: var(--accent);
       color: #fff;
       border: none;
-      padding: 9px 16px;
+      padding: 9px 14px;
       border-radius: 8px;
       font-weight: 600;
+      font-size: 0.85rem;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 7px;
       transition: 0.15s;
     }
     .btn:hover { background: var(--accent-hover); }
     .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-    .btn-outline {
-      background: var(--surface-2);
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
+    .btn-outline { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+    .btn-outline:hover { border-color: var(--accent); }
+    .btn-sm { padding: 6px 10px; font-size: 0.78rem; }
     .btn-danger { background: var(--danger); }
 
     .container {
       max-width: 1380px;
-      margin: 22px auto;
-      padding: 0 20px;
+      margin: 20px auto;
+      padding: 0 16px;
       display: grid;
-      grid-template-columns: 1.6fr 1fr;
-      gap: 20px;
+      grid-template-columns: 1.55fr 1fr;
+      gap: 18px;
     }
     @media (max-width: 960px) { .container { grid-template-columns: 1fr; } }
 
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 14px;
       padding: 18px;
       display: flex;
       flex-direction: column;
       gap: 14px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.12);
     }
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .card-title { font-weight: 600; font-size: 0.98rem; display: flex; align-items: center; gap: 8px; }
+    .card-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .card-title { font-weight: 600; font-size: 0.96rem; display: flex; align-items: center; gap: 8px; }
 
-    .upload-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .demo-bar { display: flex; gap: 8px; flex-wrap: wrap; }
+    .upload-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .drop-zone {
       border: 1.5px dashed var(--border);
       background: var(--surface-2);
       border-radius: 10px;
-      padding: 12px;
+      padding: 11px;
       text-align: center;
       cursor: pointer;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       color: var(--muted);
       transition: 0.2s;
     }
@@ -127,13 +132,14 @@
     .drop-zone input { display: none; }
 
     .CodeMirror {
-      height: 410px;
+      height: 440px;
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 10px;
       font-size: 13.5px;
     }
 
-    label { font-size: 0.82rem; color: var(--muted); font-weight: 600; display: block; margin-bottom: 6px; }
+    label { font-size: 0.8rem; color: var(--muted); font-weight: 600; display: block; margin-bottom: 6px; }
+    .input-group { display: flex; gap: 8px; }
     input[type="text"], input[type="password"], textarea, select {
       width: 100%;
       background: var(--surface-2);
@@ -141,79 +147,130 @@
       color: var(--text);
       padding: 10px 12px;
       border-radius: 8px;
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       outline: none;
     }
     input:focus, textarea:focus, select:focus { border-color: var(--accent); }
-    textarea { font-family: monospace; resize: vertical; min-height: 95px; }
+    textarea { font-family: monospace; resize: vertical; min-height: 90px; }
 
-    .console {
-      background: #070a10;
-      color: #34d399;
-      font-family: 'Fira Code', monospace;
-      font-size: 0.8rem;
-      padding: 12px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      height: 210px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
+    .token-status { font-size: 0.78rem; margin-top: 5px; min-height: 18px; }
     .bot-item {
       background: var(--surface-2);
       border: 1px solid var(--border);
-      padding: 10px 12px;
-      border-radius: 8px;
+      padding: 11px 13px;
+      border-radius: 10px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.85rem;
+      font-size: 0.84rem;
     }
-    .badge-ok { color: var(--success); font-weight: 600; }
+
+    /* FLOATING TERMINAL */
+    .floating-terminal {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      width: 480px;
+      max-width: calc(100vw - 32px);
+      background: #070b14;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.55);
+      z-index: 999;
+      overflow: hidden;
+      transition: height 0.2s ease, width 0.2s ease;
+    }
+    .floating-terminal.minimized .term-body { display: none; }
+    .floating-terminal.expanded { width: 720px; }
+    .term-header {
+      background: #0f172a;
+      padding: 9px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #1e293b;
+      cursor: move;
+      user-select: none;
+    }
+    .term-dots { display: flex; align-items: center; gap: 6px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .dot-red { background: #ef4444; }
+    .dot-yellow { background: #f59e0b; }
+    .dot-green { background: #10b981; }
+    .term-title { color: #e2e8f0; font-size: 0.8rem; font-weight: 600; margin-left: 6px; display: flex; align-items: center; gap: 6px; }
+    .term-actions { display: flex; gap: 6px; }
+    .term-btn {
+      background: #1e293b;
+      color: #cbd5e1;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 3px 8px;
+      font-size: 0.72rem;
+      cursor: pointer;
+    }
+    .term-btn:hover { background: #334155; color: #fff; }
+    .term-body {
+      padding: 12px 14px;
+      height: 230px;
+      overflow-y: auto;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.79rem;
+      line-height: 1.45;
+      color: #34d399;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .floating-terminal.expanded .term-body { height: 360px; }
   </style>
 </head>
 <body>
 
 <header>
   <div class="brand">
-    <i class="fa-brands fa-python"></i>
+    <i class="fa-brands fa-python" style="color:var(--accent); font-size:1.4rem;"></i>
     <span>PyBot Cloud</span>
+    <span class="brand-badge">Render Free Ready</span>
   </div>
   <div class="stats-bar">
     <div class="pill">
-      <i class="fa-solid fa-memory"></i>
+      <i class="fa-solid fa-microchip" style="color:var(--accent);"></i>
       <span id="ramStat">RAM: -- / 512 MB</span>
     </div>
     <div class="pill">
-      <i class="fa-solid fa-robot"></i>
+      <i class="fa-solid fa-robot" style="color:var(--success);"></i>
       <span id="botCountStat">Bots: 0 / 5</span>
     </div>
-    <button class="btn btn-outline" id="themeToggle" title="Toggle Theme">
-      <i class="fa-solid fa-moon"></i>
+    <button class="btn btn-outline btn-sm" id="toggleTermBtn" title="Show/Hide Floating Terminal">
+      <i class="fa-solid fa-terminal"></i> Console
+    </button>
+    <button class="btn btn-outline btn-sm" id="themeToggle" title="Toggle Theme">
+      <i class="fa-solid fa-circle-half-stroke"></i>
     </button>
   </div>
 </header>
 
 <main class="container">
-  <!-- Left: File Upload & Code Editor -->
+  <!-- Left: Code Editor & Demo Presets -->
   <section class="card">
     <div class="card-header">
-      <div class="card-title"><i class="fa-solid fa-code"></i> Bot Script Editor (bot.py)</div>
-      <div style="display:flex; gap:8px;">
-        <button class="btn btn-outline" id="loadSampleBtn">
-          <i class="fa-solid fa-wand-magic-sparkles"></i> Load Sample Bot
+      <div class="card-title"><i class="fa-solid fa-code" style="color:var(--accent);"></i> bot.py Workspace</div>
+      <div class="demo-bar">
+        <button class="btn btn-outline btn-sm" id="demoPollingBtn">
+          <i class="fa-solid fa-bolt" style="color:var(--warning);"></i> Demo: Polling Bot
+        </button>
+        <button class="btn btn-outline btn-sm" id="demoWebhookBtn">
+          <i class="fa-solid fa-globe" style="color:var(--success);"></i> Demo: Webhook Bot
         </button>
       </div>
     </div>
 
     <div class="upload-row">
-      <label class="drop-zone" id="pyDropZone">
-        <i class="fa-solid fa-file-code"></i> Upload <b>.py</b> Script
+      <label class="drop-zone">
+        <i class="fa-solid fa-file-code"></i> Upload <b>.py</b> File
         <input type="file" id="pyFileInput" accept=".py,.txt" />
       </label>
-      <label class="drop-zone" id="reqDropZone">
-        <i class="fa-solid fa-box-open"></i> Upload <b>requirements.txt</b>
+      <label class="drop-zone">
+        <i class="fa-solid fa-boxes-stacked"></i> Upload <b>requirements.txt</b>
         <input type="file" id="reqFileInput" accept=".txt" />
       </label>
     </div>
@@ -221,52 +278,70 @@
     <textarea id="codeEditor"></textarea>
   </section>
 
-  <!-- Right: Configuration, Deploy & Live Logs -->
-  <section style="display:flex; flex-direction:column; gap:20px;">
+  <!-- Right: Token, Mode, Requirements & Active Bots -->
+  <section style="display:flex; flex-direction:column; gap:18px;">
     <div class="card">
-      <div class="card-title"><i class="fa-solid fa-rocket"></i> Deployment Settings</div>
+      <div class="card-title"><i class="fa-solid fa-rocket" style="color:var(--accent);"></i> Bot Configuration & Deploy</div>
 
       <div>
-        <label>Telegram Bot Token (from @BotFather)</label>
-        <input type="password" id="botToken" placeholder="1234567890:AAFxxxxxxxxxxxxxxxxxxxxxxxx" />
+        <label>Telegram Bot Token (@BotFather)</label>
+        <div class="input-group">
+          <input type="password" id="botToken" placeholder="1234567890:AAFxxxxxxxxxxxxxxxxxxxxxxxx" />
+          <button class="btn btn-outline btn-sm" id="toggleTokenVis" type="button" title="Show/Hide Token">
+            <i class="fa-solid fa-eye"></i>
+          </button>
+          <button class="btn btn-outline btn-sm" id="verifyTokenBtn" type="button">
+            <i class="fa-solid fa-check-circle"></i> Verify
+          </button>
+        </div>
+        <div class="token-status" id="tokenStatus"></div>
       </div>
 
       <div>
-        <label>Execution & Webhook Mode</label>
+        <label>Execution Mode (Match with your Demo/Script)</label>
         <select id="deployMode">
-          <option value="polling">Auto Polling (Recommended — Zero Webhook Boilerplate)</option>
-          <option value="webhook">Auto Webhook (Sets Telegram Webhook to Render URL)</option>
+          <option value="polling">Auto Polling (Best for standard infinity_polling bots)</option>
+          <option value="webhook">Auto Webhook (Best for aiohttp/FastAPI webhook bots)</option>
         </select>
       </div>
 
       <div>
-        <label>requirements.txt (One package per line)</label>
+        <label>requirements.txt (One library per line)</label>
         <textarea id="reqBox" placeholder="pyTelegramBotAPI&#10;requests"></textarea>
       </div>
 
-      <button class="btn" id="deployBtn" style="width:100%; justify-content:center; padding:12px;">
+      <button class="btn" id="deployBtn" style="width:100%; justify-content:center; padding:12px; font-size:0.95rem;">
         <i class="fa-solid fa-cloud-arrow-up"></i> Validate & Deploy Bot
       </button>
     </div>
 
     <div class="card">
-      <div class="card-header">
-        <div class="card-title"><i class="fa-solid fa-terminal"></i> Deployment & Live Console</div>
-        <button class="btn btn-outline" id="refreshLogsBtn" style="padding:5px 10px; font-size:0.78rem;">
-          <i class="fa-solid fa-rotate"></i> Refresh Logs
-        </button>
-      </div>
-      <div class="console" id="consoleOut">Ready. Upload your bot.py & requirements.txt, enter Bot Token, and hit Deploy.</div>
-    </div>
-
-    <div class="card">
-      <div class="card-title"><i class="fa-solid fa-server"></i> Active Bots on Instance</div>
+      <div class="card-title"><i class="fa-solid fa-server" style="color:var(--success);"></i> Running Bots on Render</div>
       <div id="activeBotsList" style="display:flex; flex-direction:column; gap:8px;">
-        <span style="color:var(--muted); font-size:0.85rem;">No bots running yet.</span>
+        <span style="color:var(--muted); font-size:0.84rem;">No bots active right now.</span>
       </div>
     </div>
   </section>
 </main>
+
+<!-- Floating Live Terminal -->
+<div class="floating-terminal" id="floatingTerminal">
+  <div class="term-header" id="termDragHandle">
+    <div class="term-dots">
+      <span class="dot dot-red"></span>
+      <span class="dot dot-yellow"></span>
+      <span class="dot dot-green"></span>
+      <span class="term-title"><i class="fa-solid fa-terminal"></i> Live Deploy Console</span>
+    </div>
+    <div class="term-actions">
+      <button class="term-btn" id="termClearBtn" title="Clear Console">Clear</button>
+      <button class="term-btn" id="termExpandBtn" title="Expand/Shrink"><i class="fa-solid fa-expand"></i></button>
+      <button class="term-btn" id="termMinBtn" title="Minimize/Restore"><i class="fa-solid fa-minus"></i></button>
+    </div>
+  </div>
+  <div class="term-body" id="consoleOut">PyBot Cloud Terminal Ready.
+Tip: Select a Demo Bot or upload your own .py script, enter your Bot Token, and click Deploy.</div>
+</div>
 
 <script src="/static/script.js"></script>
 </body>
