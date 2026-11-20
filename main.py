@@ -2,6 +2,7 @@ import os
 import re
 import sys
 import time
+import shutil
 import asyncio
 import traceback
 import py_compile
@@ -27,11 +28,13 @@ STATIC_DIR.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 MAX_BOTS = int(os.getenv("MAX_BOTS", "5"))
-BLOCKED_PACKAGES = {"torch", "tensorflow", "scipy", "pandas", "opencv-python", "playwright", "selenium"}
+BLOCKED_PACKAGES = {
+    "torch", "tensorflow", "scipy", "pandas",
+    "opencv-python", "playwright", "selenium", "transformers"
+}
 RUNNING_BOTS: Dict[str, dict] = {}
 
 
-# Global Exception Handler: Prevents plain-text "Internal Server Error" HTML/Text
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     err_trace = traceback.format_exc()
@@ -53,7 +56,6 @@ class TokenVerifyPayload(BaseModel):
 
 
 def get_container_memory():
-    """Reads actual Render container RSS usage & cgroup limit (512 MB on Free Tier)."""
     used_mb = round(psutil.Process(os.getpid()).memory_info().rss / (1024 * 1024), 1)
     for bdata in RUNNING_BOTS.values():
         proc = bdata.get("process")
@@ -85,7 +87,10 @@ async def verify_telegram_token(token: str) -> dict:
             resp = await client.get(url)
             data = resp.json()
             if not data.get("ok"):
-                raise HTTPException(status_code=400, detail=f"Telegram Rejected Token: {data.get('description', 'Invalid Token')}")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Telegram Rejected Token: {data.get('description', 'Invalid Token')}"
+                )
             return data["result"]
     except httpx.RequestError as e:
         raise HTTPException(status_code=502, detail=f"Failed to reach Telegram API: {str(e)}")
@@ -120,7 +125,10 @@ def validate_python_syntax(code: str, script_path: Path):
 
 
 def install_requirements(req_text: str, target_dir: Path) -> str:
-    lines = [line.strip() for line in req_text.splitlines() if line.strip() and not line.strip().startswith("#")]
+    lines = [
+        line.strip() for line in req_text.splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
     if not lines:
         return "No extra packages requested."
 
@@ -154,17 +162,73 @@ def install_requirements(req_text: str, target_dir: Path) -> str:
     return f"Installed: {', '.join(lines)}"
 
 
-def stop_bot_process(bot_id: str):
-    info = RUNNING_BOTS.get(bot_id)
-    if info and info.get("process"):
-        proc: subprocess.Popen = info["process"]
-        if proc.poll() is None:
+def stop_and_purge_bot(bot_id: str) -> bool:
+    """Stops running bot process, closes log file handle, and deletes its entire storage folder."""
+    info = RUNNING_BOTS.pop(bot_id, None)
+    if info:
+        proc: subprocess.Popen = info.get("process")
+        if proc and proc.poll() is None:
             proc.terminate()
             try:
                 proc.wait(timeout=4)
             except subprocess.TimeoutExpired:
                 proc.kill()
-    RUNNING_BOTS.pop(bot_id, None)
+        log_file = info.get("log_file")
+        if log_file and not log_file.closed:
+            try:
+                log_file.close()
+            except Exception:
+                pass
+
+    bot_dir = BOTS_DIR / bot_id
+    existed = bot_dir.exists()
+    if existed:
+        shutil.rmtree(bot_dir, ignore_errors=True)
+    return existed
+
+
+def spawn_bot_process(token: str, bot_id: str, mode: str, public_url: str, bot_user: dict) -> dict:
+    bot_dir = BOTS_DIR / bot_id
+    script_path = bot_dir / "bot.py"
+    log_path = bot_dir / "bot.log"
+
+    internal_port = str(9000 + (int(bot_id) % 900))
+    log_file = open(log_path, "w", encoding="utf-8")
+    env = os.environ.copy()
+    env["BOT_TOKEN"] = token
+    env["WEBHOOK_URL"] = f"{public_url}/webhook/{bot_id}"
+    env["WEBHOOK_PATH"] = f"/webhook/{bot_id}"
+    env["PORT"] = internal_port
+    env["PYTHONPATH"] = f"{bot_dir / 'libs'}{os.pathsep}{env.get('PYTHONPATH', '')}"
+    env["PYTHONUNBUFFERED"] = "1"
+
+    proc = subprocess.Popen(
+        [sys.executable, str(script_path)],
+        cwd=str(bot_dir),
+        env=env,
+        stdout=log_file,
+        stderr=subprocess.STDOUT
+    )
+
+    time.sleep(1.5)
+    if proc.poll() is not None:
+        log_file.close()
+        err_output = log_path.read_text(encoding="utf-8", errors="replace")[-1200:]
+        raise HTTPException(status_code=400, detail=f"Bot exited on startup:\n{err_output}")
+
+    record = {
+        "token": token,
+        "process": proc,
+        "log_file": log_file,
+        "log_path": log_path,
+        "username": bot_user.get("username"),
+        "name": bot_user.get("first_name"),
+        "mode": mode,
+        "internal_port": internal_port,
+        "started_at": time.time()
+    }
+    RUNNING_BOTS[bot_id] = record
+    return record
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -192,9 +256,16 @@ async def verify_token_endpoint(payload: TokenVerifyPayload):
 @app.get("/api/system")
 async def system_stats():
     used_mb, limit_mb = get_container_memory()
+    disk_used_mb = round(
+        sum(f.stat().st_size for p in BOTS_DIR.iterdir() if p.is_dir() for f in p.rglob("*") if f.is_file())
+        / (1024 * 1024),
+        2
+    ) if BOTS_DIR.exists() else 0.0
+
     return {
         "ram_used_mb": used_mb,
         "ram_total_mb": limit_mb,
+        "disk_used_mb": disk_used_mb,
         "active_bots": len(RUNNING_BOTS),
         "max_bots": MAX_BOTS,
         "bots": [
@@ -227,63 +298,22 @@ async def deploy_bot(payload: DeployPayload, request: Request):
     if not payload.code.strip():
         raise HTTPException(status_code=400, detail="Python script cannot be empty.")
 
-    # 1. Verify Token
     bot_user = await verify_telegram_token(token)
 
-    # 2. Setup Workspace
+    # Clean previous files if redeploying same bot_id
+    stop_and_purge_bot(bot_id)
+
     bot_dir = BOTS_DIR / bot_id
     bot_dir.mkdir(parents=True, exist_ok=True)
     script_path = bot_dir / "bot.py"
-    log_path = bot_dir / "bot.log"
 
-    # 3. Check Syntax
     validate_python_syntax(payload.code, script_path)
-
-    # 4. Install Requirements
     pip_summary = await asyncio.to_thread(install_requirements, payload.requirements, bot_dir)
 
-    # 5. Stop Previous Instance
-    stop_bot_process(bot_id)
-
-    # 6. Configure Webhook or Polling
     public_url = os.getenv("RENDER_EXTERNAL_URL") or str(request.base_url).rstrip("/")
     mode_status = await configure_telegram_mode(token, payload.mode, public_url, bot_id)
 
-    # 7. Launch Process
-    internal_port = str(9000 + (int(bot_id) % 900))
-    log_file = open(log_path, "w", encoding="utf-8")
-    env = os.environ.copy()
-    env["BOT_TOKEN"] = token
-    env["WEBHOOK_URL"] = f"{public_url}/webhook/{bot_id}"
-    env["WEBHOOK_PATH"] = f"/webhook/{bot_id}"
-    env["PORT"] = internal_port
-    env["PYTHONPATH"] = f"{bot_dir / 'libs'}{os.pathsep}{env.get('PYTHONPATH', '')}"
-    env["PYTHONUNBUFFERED"] = "1"
-
-    proc = subprocess.Popen(
-        [sys.executable, str(script_path)],
-        cwd=str(bot_dir),
-        env=env,
-        stdout=log_file,
-        stderr=subprocess.STDOUT
-    )
-
-    await asyncio.sleep(1.5)
-    if proc.poll() is not None:
-        log_file.close()
-        err_output = log_path.read_text(encoding="utf-8", errors="replace")[-1200:]
-        raise HTTPException(status_code=400, detail=f"Bot exited immediately on startup:\n{err_output}")
-
-    RUNNING_BOTS[bot_id] = {
-        "process": proc,
-        "log_file": log_file,
-        "log_path": log_path,
-        "username": bot_user.get("username"),
-        "name": bot_user.get("first_name"),
-        "mode": payload.mode,
-        "internal_port": internal_port,
-        "started_at": time.time()
-    }
+    await asyncio.to_thread(spawn_bot_process, token, bot_id, payload.mode, public_url, bot_user)
 
     return {
         "ok": True,
@@ -292,6 +322,43 @@ async def deploy_bot(payload: DeployPayload, request: Request):
         "mode_status": mode_status,
         "pip_log": pip_summary
     }
+
+
+@app.post("/api/restart/{bot_id}")
+async def restart_bot(bot_id: str, request: Request):
+    existing = RUNNING_BOTS.get(bot_id)
+    bot_dir = BOTS_DIR / bot_id
+    if not existing or not (bot_dir / "bot.py").exists():
+        raise HTTPException(status_code=404, detail="Bot storage or active session not found.")
+
+    token = existing["token"]
+    mode = existing["mode"]
+    user_info = {"username": existing["username"], "first_name": existing["name"]}
+
+    # Stop old process without deleting bot.py / libs
+    proc: subprocess.Popen = existing.get("process")
+    if proc and proc.poll() is None:
+        proc.terminate()
+        try:
+            proc.wait(timeout=4)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+    if existing.get("log_file") and not existing["log_file"].closed:
+        existing["log_file"].close()
+
+    public_url = os.getenv("RENDER_EXTERNAL_URL") or str(request.base_url).rstrip("/")
+    await asyncio.to_thread(spawn_bot_process, token, bot_id, mode, public_url, user_info)
+    return {"ok": True, "message": f"Bot @{user_info['username']} restarted."}
+
+
+@app.delete("/api/delete/{bot_id}")
+@app.post("/api/stop/{bot_id}")
+async def delete_bot(bot_id: str):
+    """Stops bot and deletes its entire storage directory from disk."""
+    existed = stop_and_purge_bot(bot_id)
+    if not existed:
+        shutil.rmtree(BOTS_DIR / bot_id, ignore_errors=True)
+    return {"ok": True, "message": f"Bot {bot_id} stopped and storage purged."}
 
 
 @app.post("/webhook/{bot_id}")
@@ -321,15 +388,9 @@ async def proxy_webhook(bot_id: str, request: Request):
 async def get_logs(bot_id: str):
     log_path = BOTS_DIR / bot_id / "bot.log"
     if not log_path.exists():
-        return {"logs": "Waiting for bot output..."}
+        return {"logs": "Storage cleared or no logs available."}
     content = log_path.read_text(encoding="utf-8", errors="replace")
     return {"logs": content[-6000:] or "Process active (no stdout printed yet)..."}
-
-
-@app.post("/api/stop/{bot_id}")
-async def stop_bot(bot_id: str):
-    stop_bot_process(bot_id)
-    return {"ok": True, "message": f"Bot {bot_id} stopped."}
 
 
 @app.get("/health")
