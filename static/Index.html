@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PyBot Cloud — Render Python Bot Deployer</title>
+  <title>PyBot Cloud — Full Python Telegram Bot Deployment Platform</title>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/js/all.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css" />
@@ -13,11 +13,11 @@
 
   <style>
     :root {
-      --bg: #090d16;
+      --bg: #080c14;
       --surface: #111827;
-      --surface-2: #1a2234;
-      --border: #2a3548;
-      --text: #f3f4f6;
+      --surface-2: #192234;
+      --border: #273449;
+      --text: #f8fafc;
       --muted: #94a3b8;
       --accent: #6366f1;
       --accent-hover: #4f46e5;
@@ -35,37 +35,41 @@
       --accent: #4f46e5;
       --accent-hover: #4338ca;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; }
-    body { background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 90px; transition: 0.2s; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; transition: 0.2s; }
 
+    /* HEADER */
     header {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-      padding: 12px 20px;
+      padding: 14px 24px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 12px;
       position: sticky;
       top: 0;
       z-index: 40;
     }
-    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.1rem; }
-    .brand-badge {
-      background: rgba(99, 102, 241, 0.15);
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 1.2rem; }
+    .brand-tag {
+      background: rgba(99, 102, 241, 0.16);
       color: var(--accent);
       border: 1px solid rgba(99, 102, 241, 0.35);
-      font-size: 0.7rem;
-      padding: 2px 8px;
+      font-size: 0.72rem;
+      padding: 3px 9px;
       border-radius: 999px;
+      font-weight: 600;
     }
-    .stats-bar { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; flex-wrap: wrap; }
-    .pill {
+    .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .stat-pill {
       background: var(--surface-2);
       border: 1px solid var(--border);
-      padding: 6px 11px;
+      padding: 7px 12px;
       border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
       display: flex;
       align-items: center;
       gap: 6px;
@@ -75,116 +79,170 @@
       background: var(--accent);
       color: #fff;
       border: none;
-      padding: 9px 14px;
-      border-radius: 8px;
+      padding: 10px 16px;
+      border-radius: 9px;
       font-weight: 600;
-      font-size: 0.85rem;
+      font-size: 0.86rem;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 7px;
+      justify-content: center;
+      gap: 8px;
       transition: 0.15s;
     }
-    .btn:hover { background: var(--accent-hover); }
-    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
     .btn-outline { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
     .btn-outline:hover { border-color: var(--accent); }
-    .btn-sm { padding: 6px 10px; font-size: 0.78rem; }
+    .btn-sm { padding: 6px 11px; font-size: 0.78rem; border-radius: 7px; }
     .btn-danger { background: var(--danger); }
+    .btn-danger:hover { background: #dc2626; }
 
-    .container {
-      max-width: 1380px;
-      margin: 20px auto;
-      padding: 0 16px;
-      display: grid;
-      grid-template-columns: 1.55fr 1fr;
-      gap: 18px;
+    /* MAIN LAYOUT */
+    main {
+      width: 100%;
+      max-width: 1480px;
+      margin: 24px auto;
+      padding: 0 20px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
     }
-    @media (max-width: 960px) { .container { grid-template-columns: 1fr; } }
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 22px;
+      align-items: start;
+    }
+    @media (max-width: 1024px) { .workspace-grid { grid-template-columns: 1fr; } }
 
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 18px;
+      border-radius: 16px;
+      padding: 20px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+      gap: 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
     }
-    .card-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
-    .card-title { font-weight: 600; font-size: 0.96rem; display: flex; align-items: center; gap: 8px; }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-title { font-weight: 700; font-size: 1rem; display: flex; align-items: center; gap: 9px; }
 
-    .demo-bar { display: flex; gap: 8px; flex-wrap: wrap; }
-    .upload-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .drop-zone {
+    /* UPLOAD & DEMO BAR */
+    .demo-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 600px) { .upload-grid { grid-template-columns: 1fr; } }
+    .drop-box {
       border: 1.5px dashed var(--border);
       background: var(--surface-2);
-      border-radius: 10px;
-      padding: 11px;
+      border-radius: 12px;
+      padding: 14px;
       text-align: center;
       cursor: pointer;
-      font-size: 0.82rem;
+      font-size: 0.85rem;
       color: var(--muted);
       transition: 0.2s;
     }
-    .drop-zone:hover { border-color: var(--accent); color: var(--text); }
-    .drop-zone input { display: none; }
+    .drop-box:hover { border-color: var(--accent); color: var(--text); background: rgba(99, 102, 241, 0.06); }
+    .drop-box input { display: none; }
 
+    /* CODEBOX */
+    .editor-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
     .CodeMirror {
-      height: 440px;
+      height: 500px;
       border: 1px solid var(--border);
-      border-radius: 10px;
-      font-size: 13.5px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.5;
     }
 
-    label { font-size: 0.8rem; color: var(--muted); font-weight: 600; display: block; margin-bottom: 6px; }
-    .input-group { display: flex; gap: 8px; }
+    /* FORM CONTROLS */
+    label { font-size: 0.82rem; color: var(--muted); font-weight: 600; display: block; margin-bottom: 6px; }
+    .input-row { display: flex; gap: 8px; }
     input[type="text"], input[type="password"], textarea, select {
       width: 100%;
       background: var(--surface-2);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 10px 12px;
-      border-radius: 8px;
-      font-size: 0.88rem;
+      padding: 11px 13px;
+      border-radius: 9px;
+      font-size: 0.9rem;
       outline: none;
     }
     input:focus, textarea:focus, select:focus { border-color: var(--accent); }
-    textarea { font-family: monospace; resize: vertical; min-height: 90px; }
+    textarea.req-area { font-family: 'Fira Code', monospace; min-height: 110px; resize: vertical; }
+    .token-feedback { font-size: 0.8rem; margin-top: 6px; min-height: 18px; }
 
-    .token-status { font-size: 0.78rem; margin-top: 5px; min-height: 18px; }
-    .bot-item {
+    /* LOGS & ACTIVE BOTS */
+    .inline-logs {
+      background: #060911;
+      color: #34d399;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      min-height: 220px;
+      max-height: 340px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .bots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 14px;
+    }
+    .bot-card {
       background: var(--surface-2);
       border: 1px solid var(--border);
-      padding: 11px 13px;
-      border-radius: 10px;
+      border-radius: 12px;
+      padding: 14px 16px;
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.84rem;
+      flex-direction: column;
+      gap: 10px;
     }
+    .bot-top { display: flex; justify-content: space-between; align-items: center; }
+    .bot-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
     /* FLOATING TERMINAL */
     .floating-terminal {
       position: fixed;
-      bottom: 16px;
-      right: 16px;
-      width: 480px;
-      max-width: calc(100vw - 32px);
-      background: #070b14;
+      bottom: 18px;
+      right: 18px;
+      width: 490px;
+      max-width: calc(100vw - 36px);
+      background: #060911;
       border: 1px solid #334155;
-      border-radius: 12px;
-      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.55);
+      border-radius: 14px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
       z-index: 999;
       overflow: hidden;
-      transition: height 0.2s ease, width 0.2s ease;
     }
     .floating-terminal.minimized .term-body { display: none; }
-    .floating-terminal.expanded { width: 720px; }
+    .floating-terminal.expanded { width: 760px; }
     .term-header {
       background: #0f172a;
-      padding: 9px 14px;
+      padding: 10px 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -192,157 +250,211 @@
       cursor: move;
       user-select: none;
     }
-    .term-dots { display: flex; align-items: center; gap: 6px; }
-    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-    .dot-red { background: #ef4444; }
-    .dot-yellow { background: #f59e0b; }
-    .dot-green { background: #10b981; }
-    .term-title { color: #e2e8f0; font-size: 0.8rem; font-weight: 600; margin-left: 6px; display: flex; align-items: center; gap: 6px; }
+    .term-title { color: #e2e8f0; font-size: 0.82rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
     .term-actions { display: flex; gap: 6px; }
     .term-btn {
       background: #1e293b;
       color: #cbd5e1;
       border: 1px solid #334155;
       border-radius: 6px;
-      padding: 3px 8px;
-      font-size: 0.72rem;
+      padding: 4px 8px;
+      font-size: 0.74rem;
       cursor: pointer;
     }
-    .term-btn:hover { background: #334155; color: #fff; }
     .term-body {
       padding: 12px 14px;
-      height: 230px;
+      height: 220px;
       overflow-y: auto;
       font-family: 'Fira Code', monospace;
-      font-size: 0.79rem;
+      font-size: 0.8rem;
       line-height: 1.45;
       color: #34d399;
       white-space: pre-wrap;
       word-break: break-word;
     }
     .floating-terminal.expanded .term-body { height: 360px; }
+
+    /* FOOTER */
+    footer {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 18px 24px;
+      margin-top: 30px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
   </style>
 </head>
 <body>
 
-<header>
-  <div class="brand">
-    <i class="fa-brands fa-python" style="color:var(--accent); font-size:1.4rem;"></i>
-    <span>PyBot Cloud</span>
-    <span class="brand-badge">Render Free Ready</span>
-  </div>
-  <div class="stats-bar">
-    <div class="pill">
-      <i class="fa-solid fa-microchip" style="color:var(--accent);"></i>
-      <span id="ramStat">RAM: -- / 512 MB</span>
+  <!-- HEADER -->
+  <header>
+    <div class="brand">
+      <i class="fa-brands fa-python" style="color:var(--accent); font-size:1.5rem;"></i>
+      <span>PyBot Cloud</span>
+      <span class="brand-tag">Render Free Tier (512MB)</span>
     </div>
-    <div class="pill">
-      <i class="fa-solid fa-robot" style="color:var(--success);"></i>
-      <span id="botCountStat">Bots: 0 / 5</span>
-    </div>
-    <button class="btn btn-outline btn-sm" id="toggleTermBtn" title="Show/Hide Floating Terminal">
-      <i class="fa-solid fa-terminal"></i> Console
-    </button>
-    <button class="btn btn-outline btn-sm" id="themeToggle" title="Toggle Theme">
-      <i class="fa-solid fa-circle-half-stroke"></i>
-    </button>
-  </div>
-</header>
-
-<main class="container">
-  <!-- Left: Code Editor & Demo Presets -->
-  <section class="card">
-    <div class="card-header">
-      <div class="card-title"><i class="fa-solid fa-code" style="color:var(--accent);"></i> bot.py Workspace</div>
-      <div class="demo-bar">
-        <button class="btn btn-outline btn-sm" id="demoPollingBtn">
-          <i class="fa-solid fa-bolt" style="color:var(--warning);"></i> Demo: Polling Bot
-        </button>
-        <button class="btn btn-outline btn-sm" id="demoWebhookBtn">
-          <i class="fa-solid fa-globe" style="color:var(--success);"></i> Demo: Webhook Bot
-        </button>
+    <div class="header-right">
+      <div class="stat-pill">
+        <i class="fa-solid fa-memory" style="color:var(--accent);"></i>
+        <span id="ramStat">RAM: -- / 512 MB</span>
       </div>
-    </div>
-
-    <div class="upload-row">
-      <label class="drop-zone">
-        <i class="fa-solid fa-file-code"></i> Upload <b>.py</b> File
-        <input type="file" id="pyFileInput" accept=".py,.txt" />
-      </label>
-      <label class="drop-zone">
-        <i class="fa-solid fa-boxes-stacked"></i> Upload <b>requirements.txt</b>
-        <input type="file" id="reqFileInput" accept=".txt" />
-      </label>
-    </div>
-
-    <textarea id="codeEditor"></textarea>
-  </section>
-
-  <!-- Right: Token, Mode, Requirements & Active Bots -->
-  <section style="display:flex; flex-direction:column; gap:18px;">
-    <div class="card">
-      <div class="card-title"><i class="fa-solid fa-rocket" style="color:var(--accent);"></i> Bot Configuration & Deploy</div>
-
-      <div>
-        <label>Telegram Bot Token (@BotFather)</label>
-        <div class="input-group">
-          <input type="password" id="botToken" placeholder="1234567890:AAFxxxxxxxxxxxxxxxxxxxxxxxx" />
-          <button class="btn btn-outline btn-sm" id="toggleTokenVis" type="button" title="Show/Hide Token">
-            <i class="fa-solid fa-eye"></i>
-          </button>
-          <button class="btn btn-outline btn-sm" id="verifyTokenBtn" type="button">
-            <i class="fa-solid fa-check-circle"></i> Verify
-          </button>
-        </div>
-        <div class="token-status" id="tokenStatus"></div>
+      <div class="stat-pill">
+        <i class="fa-solid fa-hard-drive" style="color:var(--warning);"></i>
+        <span id="diskStat">Storage: 0 MB</span>
       </div>
-
-      <div>
-        <label>Execution Mode (Match with your Demo/Script)</label>
-        <select id="deployMode">
-          <option value="polling">Auto Polling (Best for standard infinity_polling bots)</option>
-          <option value="webhook">Auto Webhook (Best for aiohttp/FastAPI webhook bots)</option>
-        </select>
+      <div class="stat-pill">
+        <i class="fa-solid fa-robot" style="color:var(--success);"></i>
+        <span id="botCountStat">Bots: 0 / 5</span>
       </div>
-
-      <div>
-        <label>requirements.txt (One library per line)</label>
-        <textarea id="reqBox" placeholder="pyTelegramBotAPI&#10;requests"></textarea>
-      </div>
-
-      <button class="btn" id="deployBtn" style="width:100%; justify-content:center; padding:12px; font-size:0.95rem;">
-        <i class="fa-solid fa-cloud-arrow-up"></i> Validate & Deploy Bot
+      <button class="btn btn-outline btn-sm" id="toggleTermBtn">
+        <i class="fa-solid fa-terminal"></i> Floating Terminal
+      </button>
+      <button class="btn btn-outline btn-sm" id="themeToggle" title="Switch Theme">
+        <i class="fa-solid fa-circle-half-stroke"></i>
       </button>
     </div>
+  </header>
 
-    <div class="card">
-      <div class="card-title"><i class="fa-solid fa-server" style="color:var(--success);"></i> Running Bots on Render</div>
-      <div id="activeBotsList" style="display:flex; flex-direction:column; gap:8px;">
-        <span style="color:var(--muted); font-size:0.84rem;">No bots active right now.</span>
+  <!-- MAIN CONTENT -->
+  <main>
+    <div class="workspace-grid">
+      <!-- LEFT: UPLOAD & CODEBOX -->
+      <section class="card">
+        <div class="card-header">
+          <div class="card-title"><i class="fa-solid fa-code" style="color:var(--accent);"></i> CodeBox & File Upload</div>
+          <div class="demo-row">
+            <button class="btn btn-outline btn-sm" id="demoPollingBtn">
+              <i class="fa-solid fa-bolt" style="color:var(--warning);"></i> Demo Polling Bot
+            </button>
+            <button class="btn btn-outline btn-sm" id="demoWebhookBtn">
+              <i class="fa-solid fa-globe" style="color:var(--success);"></i> Demo Webhook Bot
+            </button>
+          </div>
+        </div>
+
+        <div class="upload-grid">
+          <label class="drop-box">
+            <i class="fa-solid fa-file-arrow-up" style="font-size:1.2rem; color:var(--accent); margin-bottom:4px; display:block;"></i>
+            Upload <b>bot.py</b> Script
+            <input type="file" id="pyFileInput" accept=".py,.txt" />
+          </label>
+          <label class="drop-box">
+            <i class="fa-solid fa-file-lines" style="font-size:1.2rem; color:var(--success); margin-bottom:4px; display:block;"></i>
+            Upload <b>requirements.txt</b>
+            <input type="file" id="reqFileInput" accept=".txt" />
+          </label>
+        </div>
+
+        <div class="editor-toolbar">
+          <span id="editorStats">Lines: 0 | Chars: 0</span>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-outline btn-sm" id="copyCodeBtn" type="button">
+              <i class="fa-regular fa-copy"></i> Copy
+            </button>
+            <button class="btn btn-outline btn-sm" id="clearCodeBtn" type="button">
+              <i class="fa-solid fa-eraser"></i> Clear
+            </button>
+          </div>
+        </div>
+
+        <textarea id="codeEditor"></textarea>
+      </section>
+
+      <!-- RIGHT: DEPLOY SETTINGS & LIVE LOGS -->
+      <div style="display:flex; flex-direction:column; gap:22px;">
+        <section class="card">
+          <div class="card-header">
+            <div class="card-title"><i class="fa-solid fa-rocket" style="color:var(--accent);"></i> Deploy & Webhook Setup</div>
+          </div>
+
+          <div>
+            <label>Telegram Bot Token (@BotFather)</label>
+            <div class="input-row">
+              <input type="password" id="botToken" placeholder="1234567890:AAFxxxxxxxxxxxxxxxxxxxxxxxx" />
+              <button class="btn btn-outline btn-sm" id="toggleTokenVis" type="button" title="Show/Hide Token">
+                <i class="fa-solid fa-eye"></i>
+              </button>
+              <button class="btn btn-outline btn-sm" id="verifyTokenBtn" type="button">
+                <i class="fa-solid fa-shield-check"></i> Verify
+              </button>
+            </div>
+            <div class="token-feedback" id="tokenStatus"></div>
+          </div>
+
+          <div>
+            <label>Execution & Webhook Mode</label>
+            <select id="deployMode">
+              <option value="polling">Auto Polling (Clears Webhook & Runs Polling)</option>
+              <option value="webhook">Auto Webhook (Sets Telegram Webhook to Render URL)</option>
+            </select>
+          </div>
+
+          <div>
+            <label>requirements.txt (Lightweight Python Packages)</label>
+            <textarea id="reqBox" class="req-area" placeholder="pyTelegramBotAPI&#10;requests"></textarea>
+          </div>
+
+          <button class="btn" id="deployBtn" style="width:100%; padding:13px; font-size:0.95rem;">
+            <i class="fa-solid fa-cloud-arrow-up"></i> Validate, Install & Deploy Bot
+          </button>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div class="card-title"><i class="fa-solid fa-terminal" style="color:var(--success);"></i> Live Deployment & Bot Logs</div>
+            <button class="btn btn-outline btn-sm" id="refreshLogsBtn" type="button">
+              <i class="fa-solid fa-rotate"></i> Refresh
+            </button>
+          </div>
+          <div class="inline-logs" id="inlineLogsOut">Ready. Load a demo or upload your bot.py & requirements.txt, then tap Deploy.</div>
+        </section>
       </div>
     </div>
-  </section>
-</main>
 
-<!-- Floating Live Terminal -->
-<div class="floating-terminal" id="floatingTerminal">
-  <div class="term-header" id="termDragHandle">
-    <div class="term-dots">
-      <span class="dot dot-red"></span>
-      <span class="dot dot-yellow"></span>
-      <span class="dot dot-green"></span>
-      <span class="term-title"><i class="fa-solid fa-terminal"></i> Live Deploy Console</span>
+    <!-- ACTIVE BOTS & AUTO-PURGE STORAGE SECTION -->
+    <section class="card">
+      <div class="card-header">
+        <div class="card-title"><i class="fa-solid fa-server" style="color:var(--accent);"></i> Deployed Bots & Storage Manager</div>
+        <span style="font-size:0.8rem; color:var(--muted);">Deleting a bot immediately wipes its folder, libs & logs from disk.</span>
+      </div>
+      <div class="bots-grid" id="activeBotsList">
+        <span style="color:var(--muted); font-size:0.86rem;">No bots currently deployed.</span>
+      </div>
+    </section>
+  </main>
+
+  <!-- FLOATING DRAGGABLE TERMINAL -->
+  <div class="floating-terminal minimized" id="floatingTerminal">
+    <div class="term-header" id="termDragHandle">
+      <div class="term-title">
+        <i class="fa-solid fa-terminal" style="color:var(--success);"></i>
+        <span>Floating Console</span>
+      </div>
+      <div class="term-actions">
+        <button class="term-btn" id="termClearBtn" title="Clear">Clear</button>
+        <button class="term-btn" id="termExpandBtn" title="Expand"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button>
+        <button class="term-btn" id="termMinBtn" title="Minimize"><i class="fa-solid fa-minus"></i></button>
+      </div>
     </div>
-    <div class="term-actions">
-      <button class="term-btn" id="termClearBtn" title="Clear Console">Clear</button>
-      <button class="term-btn" id="termExpandBtn" title="Expand/Shrink"><i class="fa-solid fa-expand"></i></button>
-      <button class="term-btn" id="termMinBtn" title="Minimize/Restore"><i class="fa-solid fa-minus"></i></button>
-    </div>
+    <div class="term-body" id="consoleOut">Floating terminal ready.</div>
   </div>
-  <div class="term-body" id="consoleOut">PyBot Cloud Terminal Ready.
-Tip: Select a Demo Bot or upload your own .py script, enter your Bot Token, and click Deploy.</div>
-</div>
 
-<script src="/static/script.js"></script>
+  <!-- FOOTER -->
+  <footer>
+    <div>
+      <strong>PyBot Cloud</strong> • Multi-Tenant Python Telegram Bot Runner for Render Free Tier
+    </div>
+    <div>
+      Auto-Purge Storage Enabled • Keep heavy ML packages (<code>torch</code>, <code>tensorflow</code>) out of 512MB RAM
+    </div>
+  </footer>
+
+  <script src="/static/script.js"></script>
 </body>
 </html>
