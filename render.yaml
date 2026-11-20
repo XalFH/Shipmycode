@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: py-bot-cloud
+    runtime: python
+    plan: free
+    region: singapore # Lowest latency for India/Asia
+    buildCommand: pip install --no-cache-dir -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: MAX_BOTS
+        value: "5" # Safe limit for 512MB RAM
+      - key: ADMIN_SECRET
+        generateValue: true
